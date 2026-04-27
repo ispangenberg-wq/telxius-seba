@@ -44,6 +44,18 @@ def parse_period_dates(raw, fallback_year: int) -> tuple[str, str]:
 
     raw_clean = raw.strip()
 
+    range_match2 = re.search(
+        r"([A-Za-z]+),?\s*(\d{4})\s*[-–]\s*([A-Za-z]+),?\s*(\d{4})", raw_clean
+    )
+    if range_match2:
+        m_start = MONTH_MAP.get(range_match2.group(1).lower())
+        yr_start = int(range_match2.group(2))
+        m_end = MONTH_MAP.get(range_match2.group(3).lower())
+        yr_end = int(range_match2.group(4))
+        if m_start and m_end:
+            last_day = calendar.monthrange(yr_end, m_end)[1]
+            return f"01/{m_start:02d}/{yr_start}", f"{last_day:02d}/{m_end:02d}/{yr_end}"
+
     range_match = re.search(
         r"([A-Za-z]+)\s*[-–]\s*([A-Za-z]+)(?:,?\s*(\d{4}))?", raw_clean
     )
