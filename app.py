@@ -90,13 +90,6 @@ def process_excel(contents: bytes) -> bytes:
     lookup_prov = pd.read_excel(xls, sheet_name=prov_sheet)
     efc_to_elem_prov = dict(zip(lookup_prov["EFC Number"], lookup_prov["Elemento a Facturar ID"]))
 
-    efc_to_elem_ext = {}
-    ext_sheet = find_lookup_sheet(xls.sheet_names, "EXTORNO")
-    if ext_sheet and ext_sheet not in DATA_SHEETS:
-        lookup_ext = pd.read_excel(xls, sheet_name=ext_sheet)
-        if "EFC Number" in lookup_ext.columns and "Elemento a Facturar ID" in lookup_ext.columns:
-            efc_to_elem_ext = dict(zip(lookup_ext["EFC Number"], lookup_ext["Elemento a Facturar ID"]))
-
     today = date.today()
     current_year = today.year
     current_month = today.month
@@ -178,7 +171,7 @@ def process_excel(contents: bytes) -> bytes:
                         provisiones.append(make_row(elem_id, ep, current_year, current_month, start_str, end_str, "NRC", nrc_val))
 
             if pd.notna(ep_ext) and isinstance(ep_ext, str) and ep_ext.startswith("EFC"):
-                elem_id = efc_to_elem_ext.get(ep_ext)
+                elem_id = efc_to_elem_prov.get(ep_ext)
                 if elem_id is None:
                     continue
 
@@ -195,7 +188,7 @@ def process_excel(contents: bytes) -> bytes:
                         mrc1_val = 0
                     if mrc1_val != 0:
                         tipo = "O&M" if is_om else "MRC"
-                        extornos.append(make_row(elem_id, ep_ext, current_year, current_month, start_ant, end_ant, tipo, -mrc1_val))
+                        extornos.append(make_row(elem_id, ep_ext, current_year, current_month, start_ant, end_ant, tipo, -abs(mrc1_val)))
 
                 if nrc1_col:
                     nrc1_val = row.get(nrc1_col, 0)
@@ -206,7 +199,7 @@ def process_excel(contents: bytes) -> bytes:
                     except (ValueError, TypeError):
                         nrc1_val = 0
                     if nrc1_val != 0:
-                        extornos.append(make_row(elem_id, ep_ext, current_year, current_month, start_ant, end_ant, "NRC", -nrc1_val))
+                        extornos.append(make_row(elem_id, ep_ext, current_year, current_month, start_ant, end_ant, "NRC", -abs(nrc1_val)))
 
     df_prov = pd.DataFrame(provisiones)
     df_ext = pd.DataFrame(extornos)
