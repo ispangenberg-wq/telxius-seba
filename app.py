@@ -6,6 +6,7 @@ from datetime import date
 import pandas as pd
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
 
@@ -248,6 +249,9 @@ def process_excel(contents: bytes) -> bytes:
 
     output.seek(0)
     return output.getvalue()
+
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.get("/", response_class=HTMLResponse)

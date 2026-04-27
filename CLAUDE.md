@@ -12,11 +12,10 @@ El usuario sube un Excel de provisiones (.xlsx) por el frontend y descarga otro 
 
 Tiene 3 pestañas de datos + pestañas de lookup:
 
-- **Lease** — circuitos, enlaces, cross connects. Tiene columnas NRC y MRC.
+- **Lease** (o **CAP** en Brasil) — circuitos, enlaces, cross connects. Tiene columnas NRC y MRC.
 - **O&M** — operaciones y mantenimiento (fibra oscura, housing, power). Solo tiene MRC (no NRC).
 - **IP** — tránsito IP, seguridad (escudos DDoS). Tiene NRC y MRC.
-- **Informe mes actual Provisiones-** (obligatoria) — tabla de lookup con columnas `EFC Number` → `Elemento a Facturar ID`. Se usa para mapear el EP de las provisiones positivas.
-- **Informe mes actual EXTORNOS** (opcional) — misma estructura de lookup pero para extornos.
+- **Informe mes actual Provisiones-** (obligatoria) — tabla de lookup con columnas `EFC Number` → `Elemento a Facturar ID`. Se usa para mapear tanto EP como EP EXTORNO.
 
 ### Columnas clave del Excel de entrada
 
@@ -29,9 +28,9 @@ Cada pestaña (Lease/O&M/IP) tiene dos secciones: mes actual y mes anterior.
 - `MRC` — cargo mensual recurrente
 
 **Mes anterior (extornos):**
-- `EP EXTORNO >>> SI APLICA` — código EFC que se busca en la lookup de extornos
+- `EP EXTORNO >>> SI APLICA` — código EFC que se busca en la misma lookup de provisiones
 - `Invoice Period.1` — determina Inicio/Fin Período de Facturación para extornos
-- `NRC.1` / `MRC.1` — montos del mes anterior que se revierten (se niegan)
+- `NRC.1` / `MRC.1` — montos del mes anterior (cualquier valor != 0, siempre se convierte a negativo con `-abs()`)
 
 ### Lógica de procesamiento
 
@@ -41,9 +40,9 @@ Cada pestaña (Lease/O&M/IP) tiene dos secciones: mes actual y mes anterior.
    - Si NRC > 0 → generar fila en Provisiones Positivas (Tipo de Cargo = "NRC")
 
 2. Para cada fila con EP EXTORNO válido:
-   - Buscar EP EXTORNO en "Informe mes actual EXTORNOS" → obtener `Elemento a Facturar ID`
-   - Tomar montos de columnas "Mes anterior" (MRC.1, NRC.1)
-   - Negar los montos y generar filas en Extornos
+   - Buscar EP EXTORNO en "Informe mes actual Provisiones-" (misma lookup) → obtener `Elemento a Facturar ID`
+   - Tomar montos de columnas "Mes anterior" (MRC.1, NRC.1) — cualquier valor != 0
+   - Convertir siempre a negativo (`-abs(valor)`) y generar filas en Extornos
 
 ### Excel de salida
 
@@ -66,7 +65,9 @@ Dos pestañas: **Provisiones Positivas** y **Extornos**. Mismas columnas:
 
 - `"April, 2026"` → 01/04/2026 - 30/04/2026
 - `"burst April, 2026"` → 01/04/2026 - 30/04/2026 (ignora prefijos)
-- `"January - April, 2026"` → 01/01/2026 - 30/04/2026 (rangos)
+- `"January - April, 2026"` → 01/01/2026 - 30/04/2026 (rango con un año)
+- `"September, 2021 - December, 2024"` → 01/09/2021 - 31/12/2024 (rango con año en ambos lados)
+- `"(September, 2021 - December, 2024) > cuota 11de24"` → 01/09/2021 - 31/12/2024 (ignora texto extra)
 - `"January - April"` (sin año) → 01/01/YYYY - 30/04/YYYY (usa año actual)
 - Vacío → 01/01/YYYY - 31/12/YYYY (año completo)
 
@@ -85,11 +86,12 @@ Dos pestañas: **Provisiones Positivas** y **Extornos**. Mismas columnas:
 ## Estructura de archivos
 
 ```
-app.py              → versión local (para correr con uvicorn directo)
+app.py              → versión local (para correr con uvicorn directo, monta /static para archivos estáticos)
 api/index.py        → versión Vercel (serverless, misma lógica)
-static/index.html   → frontend con branding Telxius (#0094A1 teal, #062B3B oscuro)
+static/index.html   → frontend con branding Telxius (favicon de telxius.com, fondo imagen cable submarino)
+static/bg.jpg       → imagen de fondo (cable submarino de fibra óptica)
 requirements.txt    → dependencias Python
-vercel.json         → config de deploy Vercel
+vercel.json         → config de deploy Vercel (rutas para API + archivos estáticos)
 ```
 
 ## Cómo correr local
@@ -103,7 +105,8 @@ Abrir http://localhost:8000
 
 ## Contexto de negocio
 
-- Telxius opera en Argentina (provARG). Los clientes incluyen Telefónica, Google, Amazon, Antel, Starlink, etc.
-- Este proceso se hace mensualmente. El Excel de entrada siempre viene con la misma estructura.
+- Telxius opera en múltiples países: Argentina (provARG), Brasil (provBRA), Chile (provCHI). Los clientes incluyen Telefónica, Google, Amazon, Antel, Starlink, etc.
+- Cada país puede tener nombres de columnas ligeramente distintos (ej: "CAP" en lugar de "Lease", "MRC Neto" en lugar de "MRC", "Period" en lugar de "Invoice Period"). El código usa detección dinámica con `find_col()`.
+- Este proceso se hace mensualmente. El Excel de entrada siempre viene con la misma estructura base.
 - "Provisiones" = facturación estimada del mes actual. "Extornos" = reversiones de provisiones del mes anterior.
 - El output se importa en Salesforce para registrar la facturación.
