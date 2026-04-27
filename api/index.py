@@ -65,9 +65,12 @@ def process_excel(contents: bytes) -> bytes:
     xls = pd.ExcelFile(io.BytesIO(contents))
 
     lookup_prov = pd.read_excel(xls, sheet_name="Informe mes actual Provisiones-")
-    lookup_ext = pd.read_excel(xls, sheet_name="Informe mes actual EXTORNOS")
     efc_to_elem_prov = dict(zip(lookup_prov["EFC Number"], lookup_prov["Elemento a Facturar ID"]))
-    efc_to_elem_ext = dict(zip(lookup_ext["EFC Number"], lookup_ext["Elemento a Facturar ID"]))
+
+    efc_to_elem_ext = {}
+    if "Informe mes actual EXTORNOS" in xls.sheet_names:
+        lookup_ext = pd.read_excel(xls, sheet_name="Informe mes actual EXTORNOS")
+        efc_to_elem_ext = dict(zip(lookup_ext["EFC Number"], lookup_ext["Elemento a Facturar ID"]))
 
     today = date.today()
     current_year = today.year
