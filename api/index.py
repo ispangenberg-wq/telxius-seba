@@ -16,6 +16,27 @@ MONTH_MAP = {
     "september": 9, "october": 10, "november": 11, "december": 12,
 }
 
+DATA_SHEETS = ["Lease", "CAP", "O&M", "IP"]
+OM_SHEETS = ["O&M"]
+
+
+def find_col(columns, *patterns):
+    for col in columns:
+        col_upper = str(col).upper().strip()
+        for p in patterns:
+            if p.upper() in col_upper:
+                return col
+    return None
+
+
+def find_lookup_sheet(sheet_names, *patterns):
+    for name in sheet_names:
+        name_upper = name.upper()
+        for p in patterns:
+            if p.upper() in name_upper:
+                return name
+    return None
+
 
 def parse_period_dates(raw, fallback_year: int) -> tuple[str, str]:
     if not isinstance(raw, str) or not raw.strip():
@@ -64,13 +85,18 @@ def make_row(elem_facturar_id, efc, year, month, start_date, end_date, tipo_carg
 def process_excel(contents: bytes) -> bytes:
     xls = pd.ExcelFile(io.BytesIO(contents))
 
-    lookup_prov = pd.read_excel(xls, sheet_name="Informe mes actual Provisiones-")
+    prov_sheet = find_lookup_sheet(xls.sheet_names, "Informe mes actual Provisiones", "mes actual Provisiones")
+    if prov_sheet is None:
+        raise ValueError("No se encontró la pestaña de lookup de provisiones")
+    lookup_prov = pd.read_excel(xls, sheet_name=prov_sheet)
     efc_to_elem_prov = dict(zip(lookup_prov["EFC Number"], lookup_prov["Elemento a Facturar ID"]))
 
     efc_to_elem_ext = {}
-    if "Informe mes actual EXTORNOS" in xls.sheet_names:
-        lookup_ext = pd.read_excel(xls, sheet_name="Informe mes actual EXTORNOS")
-        efc_to_elem_ext = dict(zip(lookup_ext["EFC Number"], lookup_ext["Elemento a Facturar ID"]))
+    ext_sheet = find_lookup_sheet(xls.sheet_names, "EXTORNO")
+    if ext_sheet and ext_sheet not in DATA_SHEETS:
+        lookup_ext = pd.read_excel(xls, sheet_name=ext_sheet)
+        if "EFC Number" in lookup_ext.columns and "Elemento a Facturar ID" in lookup_ext.columns:
+            efc_to_elem_ext = dict(zip(lookup_ext["EFC Number"], lookup_ext["Elemento a Facturar ID"]))
 
     today = date.today()
     current_year = today.year
@@ -79,41 +105,72 @@ def process_excel(contents: bytes) -> bytes:
     provisiones = []
     extornos = []
 
-    for sheet_name in ["Lease", "O&M", "IP"]:
+    for sheet_name in DATA_SHEETS:
         if sheet_name not in xls.sheet_names:
             continue
         df = pd.read_excel(xls, sheet_name=sheet_name, header=1)
 
-        is_om = sheet_name == "O&M"
-        has_nrc = "NRC" in df.columns
+        is_om = sheet_name in OM_SHEETS
+
+        ep_col = find_col(df.columns, "Elemento a Provisionar")
+        ep_ext_col = find_col(df.columns, "EP EXTORNO")
+        inv_period_col = find_col(df.columns, "Invoice Period", "Period")
+        mrc_col = find_col(df.columns, "MRC")
+        nrc_col = find_col(df.columns, "NRC")
+
+        # Find .1 versions (mes anterior) - must contain .1 in the name
+        inv_period1_col = None
+        mrc1_col = None
+        nrc1_col = None
+        for col in df.columns:
+            col_str = str(col)
+            if ".1" not in col_str:
+                continue
+            col_upper = col_str.upper()
+            if "PERIOD" in col_upper or "INVOICE" in col_upper:
+                inv_period1_col = col
+            elif "MRC" in col_upper:
+                mrc1_col = col
+            elif "NRC" in col_upper:
+                nrc1_col = col
+
+        if ep_col is None:
+            continue
+
+        # Exclude .1 columns from current period columns
+        if mrc_col and ".1" in str(mrc_col):
+            mrc_col = None
+        if nrc_col and ".1" in str(nrc_col):
+            nrc_col = None
+        if inv_period_col and ".1" in str(inv_period_col):
+            inv_period_col = None
 
         for _, row in df.iterrows():
-            ep = row.get("Elemento a Provisionar (EP)")
-            ep_ext = row.get("EP EXTORNO  >>> SI APLICA")
+            ep = row.get(ep_col) if ep_col else None
+            ep_ext = row.get(ep_ext_col) if ep_ext_col else None
 
             if pd.notna(ep) and isinstance(ep, str) and ep.startswith("EFC"):
                 elem_id = efc_to_elem_prov.get(ep)
                 if elem_id is None:
                     continue
 
-                inv_period = row.get("Invoice Period")
+                inv_period = row.get(inv_period_col) if inv_period_col else None
                 start_str, end_str = parse_period_dates(inv_period, current_year)
 
-                mrc_col = "MRC " if "MRC " in df.columns else "MRC"
-                mrc_val = row.get(mrc_col, 0)
-                if pd.isna(mrc_val):
-                    mrc_val = 0
-                try:
-                    mrc_val = float(mrc_val)
-                except (ValueError, TypeError):
-                    mrc_val = 0
+                if mrc_col:
+                    mrc_val = row.get(mrc_col, 0)
+                    if pd.isna(mrc_val):
+                        mrc_val = 0
+                    try:
+                        mrc_val = float(mrc_val)
+                    except (ValueError, TypeError):
+                        mrc_val = 0
+                    if mrc_val > 0:
+                        tipo = "O&M" if is_om else "MRC"
+                        provisiones.append(make_row(elem_id, ep, current_year, current_month, start_str, end_str, tipo, mrc_val))
 
-                if mrc_val > 0:
-                    tipo = "O&M" if is_om else "MRC"
-                    provisiones.append(make_row(elem_id, ep, current_year, current_month, start_str, end_str, tipo, mrc_val))
-
-                if has_nrc:
-                    nrc_val = row.get("NRC", 0)
+                if nrc_col:
+                    nrc_val = row.get(nrc_col, 0)
                     if pd.isna(nrc_val):
                         nrc_val = 0
                     try:
@@ -128,24 +185,23 @@ def process_excel(contents: bytes) -> bytes:
                 if elem_id is None:
                     continue
 
-                inv_period_ant = row.get("Invoice Period.1")
+                inv_period_ant = row.get(inv_period1_col) if inv_period1_col else None
                 start_ant, end_ant = parse_period_dates(inv_period_ant, current_year)
 
-                mrc1_col = "MRC .1" if "MRC .1" in df.columns else "MRC.1"
-                mrc1_val = row.get(mrc1_col, 0)
-                if pd.isna(mrc1_val):
-                    mrc1_val = 0
-                try:
-                    mrc1_val = float(mrc1_val)
-                except (ValueError, TypeError):
-                    mrc1_val = 0
+                if mrc1_col:
+                    mrc1_val = row.get(mrc1_col, 0)
+                    if pd.isna(mrc1_val):
+                        mrc1_val = 0
+                    try:
+                        mrc1_val = float(mrc1_val)
+                    except (ValueError, TypeError):
+                        mrc1_val = 0
+                    if mrc1_val > 0:
+                        tipo = "O&M" if is_om else "MRC"
+                        extornos.append(make_row(elem_id, ep_ext, current_year, current_month, start_ant, end_ant, tipo, -mrc1_val))
 
-                if mrc1_val > 0:
-                    tipo = "O&M" if is_om else "MRC"
-                    extornos.append(make_row(elem_id, ep_ext, current_year, current_month, start_ant, end_ant, tipo, -mrc1_val))
-
-                if "NRC.1" in df.columns:
-                    nrc1_val = row.get("NRC.1", 0)
+                if nrc1_col:
+                    nrc1_val = row.get(nrc1_col, 0)
                     if pd.isna(nrc1_val):
                         nrc1_val = 0
                     try:
