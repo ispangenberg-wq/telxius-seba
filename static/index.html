@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telxius - Generador Carga Salesforce</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f5f7fa;
+        }
+
+        .container {
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 48px 44px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e8ecf0;
+            animation: fadeUp 0.5s ease-out;
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo {
+            margin: 0 auto 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo svg {
+            width: 170px;
+            height: auto;
+        }
+
+        h1 {
+            color: #0094A1;
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .subtitle {
+            color: #7a8a99;
+            font-size: 0.85rem;
+            font-weight: 400;
+            margin-bottom: 32px;
+            line-height: 1.5;
+        }
+
+        .upload-area {
+            border: 2px dashed #c8d5e0;
+            border-radius: 14px;
+            padding: 44px 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 24px;
+            background: #f8fafb;
+        }
+
+        .upload-area:hover,
+        .upload-area.dragover {
+            border-color: #0094A1;
+            background: #eef8f9;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 148, 161, 0.1);
+        }
+
+        .upload-area.has-file {
+            border-color: #0094A1;
+            background: #eef8f9;
+            border-style: solid;
+        }
+
+        .upload-icon {
+            margin-bottom: 14px;
+        }
+
+        .upload-text {
+            color: #8899a8;
+            font-size: 0.9rem;
+        }
+
+        .file-name {
+            color: #0094A1;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+
+        .file-info {
+            color: #a0b0bc;
+            font-size: 0.75rem;
+            margin-top: 4px;
+        }
+
+        input[type="file"] { display: none; }
+
+        .btn {
+            background: #0094A1;
+            color: white;
+            border: none;
+            padding: 16px 36px;
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 12px rgba(0, 148, 161, 0.25);
+        }
+
+        .btn:hover {
+            background: #00a8b8;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 148, 161, 0.35);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            background: #c8d5e0;
+            color: #fff;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .status {
+            margin-top: 18px;
+            font-size: 0.85rem;
+            min-height: 24px;
+            font-weight: 500;
+        }
+
+        .status.error {
+            color: #e54d4d;
+            animation: shake 0.4s ease;
+        }
+
+        .status.success {
+            color: #0094A1;
+            animation: popIn 0.3s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-6px); }
+            75% { transform: translateX(6px); }
+        }
+
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.95); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px; height: 16px;
+            border: 2.5px solid #d8e2ea;
+            border-top-color: #0094A1;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .processing-status {
+            color: #7a8a99;
+        }
+
+        .divider {
+            margin-top: 28px;
+            padding-top: 20px;
+            border-top: 1px solid #e8ecf0;
+        }
+
+        .footer-logo {
+            opacity: 0.3;
+            transition: opacity 0.3s;
+        }
+
+        .footer-logo:hover {
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120.8 20.6">
+                <g>
+                    <path fill="#0094A1" d="M70.1,18.8c0.2,0.3,0.3,0.6,0.3,0.9c0,0.5-0.4,0.9-1.2,0.9h-1.8c-1,0-1.4-0.3-1.9-1l-2.2-3.3L59.2,10 c-0.5-0.8-1-1.5-1.6-2.3l-4-5.9c-0.2-0.3-0.3-0.7-0.3-0.9c0-0.5,0.4-0.9,1.2-0.9h1.8c1,0,1.4,0.3,1.9,1.1l1.6,2.5 c0.7,1,1.5,2.3,2,3.2c0.5-0.9,1.2-2.1,1.8-3.1l1.7-2.6C65.8,0.4,66.2,0,67.2,0h1.6C69.6,0,70,0.4,70,1c0,0.2-0.1,0.6-0.3,0.9 l-3.8,5.8c-0.6,0.9-1.1,1.7-1.7,2.6c0.5,0.6,1.1,1.5,1.7,2.4L70.1,18.8z M57.7,12.2l-4.4,6.6c-0.2,0.3-0.3,0.6-0.3,0.9 c0,0.5,0.4,0.9,1.2,0.9h1.7c1,0,1.4-0.3,1.9-1l2.2-3.4c0.2-0.3,0.4-0.6,0.6-1l-2.5-3.6C58,11.8,57.9,12,57.7,12.2z"/>
+                    <path fill="#062B3B" d="M16.2,1.7v0.9c0,1.2-0.4,1.6-1.5,1.6h-4.5V19c0,1.1-0.4,1.5-1.6,1.5H7.5c-1.2,0-1.6-0.4-1.6-1.5v-7.5V4.2 V2.6V1.7c0-1.2,0.4-1.6,1.5-1.6h0.9h0.4h6.1C15.8,0.1,16.2,0.5,16.2,1.7z"/>
+                    <path fill="#062B3B" d="M48.7,16.4h-4.3c-1.2,0-1.9-0.2-2.3-0.6c-0.5-0.5-0.6-1.1-0.6-2.3V1.7c0-1.2-0.4-1.6-1.5-1.6h-1.4 c-1.1,0-1.5,0.4-1.5,1.6V14c0,2.2,0.4,3.7,1.4,4.8c1.1,1.2,2.7,1.7,5.4,1.7h4.7c1.1,0,1.5-0.4,1.5-1.6V18 C50.1,16.8,49.8,16.4,48.7,16.4z"/>
+                    <path fill="#062B3B" d="M32,16.4h-5.3c-1.2,0-1.9-0.2-2.3-0.6c-0.5-0.5-0.6-1.1-0.6-2.3v-1.3H30c1.1,0,1.5-0.4,1.5-1.6V9.9 c0-1.2-0.4-1.6-1.5-1.6h-6.2V7.1V4.2V1.7c0-1.2-0.4-1.6-1.5-1.6h-1.4c-1.1,0-1.5,0.4-1.5,1.6V14c0,2.2,0.4,3.7,1.4,4.8 c1.1,1.2,2.7,1.7,5.4,1.7H32c1.1,0,1.5-0.4,1.5-1.6V18C33.4,16.8,33.1,16.4,32,16.4z"/>
+                    <path fill="#062B3B" d="M2.7,0.1H2.4H1.5C0.4,0.1,0,0.5,0,1.7v0.9c0,1.2,0.4,1.6,1.5,1.6h0.9h0.4c1.1,0,1.5-0.4,1.5-1.6V1.7 C4.2,0.5,3.8,0.1,2.7,0.1z"/>
+                    <path fill="#062B3B" d="M27,4.2h2.2h2.5c1.1,0,1.5-0.4,1.5-1.6V1.7c0-1.2-0.4-1.6-1.5-1.6h-2.5H27c-1.1,0-1.5,0.4-1.5,1.6v0.9 C25.5,3.8,25.9,4.2,27,4.2z"/>
+                    <path fill="#062B3B" d="M91.8,15.2c-0.9-0.9-1.2-2-1.2-3.9V1.6c0-1.1-0.4-1.5-1.6-1.5h-1.1c-1.2,0-1.6,0.4-1.6,1.5v10.7 c0,2.8,0.6,4.5,2.1,6c0.3,0.3,0.7,0.6,1.1,0.9l3.7-3.1C92.7,15.9,92.2,15.6,91.8,15.2z"/>
+                    <path fill="#062B3B" d="M101.5,0.1h-1.1c-1.2,0-1.6,0.4-1.6,1.5v11.8c0,0.3-0.1,0.5-0.3,0.6l-7.3,6c1.1,0.4,2.4,0.6,3.8,0.6h0.1 c1.5,0,2.3-0.3,3.5-1.3l3-2.4c1.1-0.9,1.5-1.6,1.5-3.2V1.6C103.1,0.5,102.7,0.1,101.5,0.1z"/>
+                    <path fill="#062B3B" d="M111.3,6c0-1.1,1.2-1.9,3.2-1.9c1.9,0,3.3,0.4,4.2,0.4c0.7,0,0.9-0.4,0.9-1.1V2.1c0-1-0.1-1.3-1.2-1.6 S115.7,0,114.2,0c-4,0-7.4,2.4-7.4,6.3c0,6.7,9.5,5.4,9.5,8.3c0,1.2-1.2,2-3.6,2c-1.3,0-3.3-0.3-4.5-0.7c-0.3-0.1-0.5-0.1-0.7-0.1 c-0.6,0-0.8,0.4-0.8,1.1v1.6c0,0.9,0.2,1.2,1.2,1.5c1.3,0.5,3.5,0.7,5.1,0.7c5,0,7.7-2.5,7.7-6.4C120.8,7.6,111.3,9,111.3,6z"/>
+                    <path fill="#062B3B" d="M81.2,0.1h-6.1c-1.1,0-1.3,0.3-1.3,1.4v1C73.8,3.6,74,4,75.1,4H76v12.7h-0.9c-1.1,0-1.3,0.3-1.3,1.4v1 c0,1.1,0.2,1.4,1.3,1.4h6.1c1.1,0,1.3-0.3,1.3-1.4v-1c0-1.1-0.2-1.4-1.3-1.4h-0.9V4h0.9c1.1,0,1.3-0.3,1.3-1.4v-1 C82.5,0.5,82.3,0.1,81.2,0.1z"/>
+                </g>
+            </svg>
+        </div>
+
+        <h1>Carga Salesforce</h1>
+        <p class="subtitle">Subi el archivo de provisiones (.xlsx) y descarga<br>la carga lista para Salesforce</p>
+
+        <div class="upload-area" id="dropZone">
+            <div class="upload-icon">
+                <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#0094A1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+            </div>
+            <div class="upload-text">Arrastra el archivo aqui o hace click para seleccionar</div>
+            <div class="file-name" id="fileName"></div>
+            <div class="file-info" id="fileInfo"></div>
+        </div>
+        <input type="file" id="fileInput" accept=".xlsx,.xls">
+
+        <button class="btn" id="processBtn" disabled>Procesar y descargar</button>
+        <div class="status" id="status"></div>
+
+        <div class="divider">
+            <div class="footer-logo">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120.8 20.6" width="80">
+                    <g>
+                        <path fill="#0094A1" d="M70.1,18.8c0.2,0.3,0.3,0.6,0.3,0.9c0,0.5-0.4,0.9-1.2,0.9h-1.8c-1,0-1.4-0.3-1.9-1l-2.2-3.3L59.2,10 c-0.5-0.8-1-1.5-1.6-2.3l-4-5.9c-0.2-0.3-0.3-0.7-0.3-0.9c0-0.5,0.4-0.9,1.2-0.9h1.8c1,0,1.4,0.3,1.9,1.1l1.6,2.5 c0.7,1,1.5,2.3,2,3.2c0.5-0.9,1.2-2.1,1.8-3.1l1.7-2.6C65.8,0.4,66.2,0,67.2,0h1.6C69.6,0,70,0.4,70,1c0,0.2-0.1,0.6-0.3,0.9 l-3.8,5.8c-0.6,0.9-1.1,1.7-1.7,2.6c0.5,0.6,1.1,1.5,1.7,2.4L70.1,18.8z M57.7,12.2l-4.4,6.6c-0.2,0.3-0.3,0.6-0.3,0.9 c0,0.5,0.4,0.9,1.2,0.9h1.7c1,0,1.4-0.3,1.9-1l2.2-3.4c0.2-0.3,0.4-0.6,0.6-1l-2.5-3.6C58,11.8,57.9,12,57.7,12.2z"/>
+                        <path fill="#a0b0bc" d="M16.2,1.7v0.9c0,1.2-0.4,1.6-1.5,1.6h-4.5V19c0,1.1-0.4,1.5-1.6,1.5H7.5c-1.2,0-1.6-0.4-1.6-1.5v-7.5V4.2 V2.6V1.7c0-1.2,0.4-1.6,1.5-1.6h0.9h0.4h6.1C15.8,0.1,16.2,0.5,16.2,1.7z"/>
+                        <path fill="#a0b0bc" d="M48.7,16.4h-4.3c-1.2,0-1.9-0.2-2.3-0.6c-0.5-0.5-0.6-1.1-0.6-2.3V1.7c0-1.2-0.4-1.6-1.5-1.6h-1.4 c-1.1,0-1.5,0.4-1.5,1.6V14c0,2.2,0.4,3.7,1.4,4.8c1.1,1.2,2.7,1.7,5.4,1.7h4.7c1.1,0,1.5-0.4,1.5-1.6V18 C50.1,16.8,49.8,16.4,48.7,16.4z"/>
+                        <path fill="#a0b0bc" d="M32,16.4h-5.3c-1.2,0-1.9-0.2-2.3-0.6c-0.5-0.5-0.6-1.1-0.6-2.3v-1.3H30c1.1,0,1.5-0.4,1.5-1.6V9.9 c0-1.2-0.4-1.6-1.5-1.6h-6.2V7.1V4.2V1.7c0-1.2-0.4-1.6-1.5-1.6h-1.4c-1.1,0-1.5,0.4-1.5,1.6V14c0,2.2,0.4,3.7,1.4,4.8 c1.1,1.2,2.7,1.7,5.4,1.7H32c1.1,0,1.5-0.4,1.5-1.6V18C33.4,16.8,33.1,16.4,32,16.4z"/>
+                        <path fill="#a0b0bc" d="M2.7,0.1H2.4H1.5C0.4,0.1,0,0.5,0,1.7v0.9c0,1.2,0.4,1.6,1.5,1.6h0.9h0.4c1.1,0,1.5-0.4,1.5-1.6V1.7 C4.2,0.5,3.8,0.1,2.7,0.1z"/>
+                        <path fill="#a0b0bc" d="M27,4.2h2.2h2.5c1.1,0,1.5-0.4,1.5-1.6V1.7c0-1.2-0.4-1.6-1.5-1.6h-2.5H27c-1.1,0-1.5,0.4-1.5,1.6v0.9 C25.5,3.8,25.9,4.2,27,4.2z"/>
+                        <path fill="#a0b0bc" d="M91.8,15.2c-0.9-0.9-1.2-2-1.2-3.9V1.6c0-1.1-0.4-1.5-1.6-1.5h-1.1c-1.2,0-1.6,0.4-1.6,1.5v10.7 c0,2.8,0.6,4.5,2.1,6c0.3,0.3,0.7,0.6,1.1,0.9l3.7-3.1C92.7,15.9,92.2,15.6,91.8,15.2z"/>
+                        <path fill="#a0b0bc" d="M101.5,0.1h-1.1c-1.2,0-1.6,0.4-1.6,1.5v11.8c0,0.3-0.1,0.5-0.3,0.6l-7.3,6c1.1,0.4,2.4,0.6,3.8,0.6h0.1 c1.5,0,2.3-0.3,3.5-1.3l3-2.4c1.1-0.9,1.5-1.6,1.5-3.2V1.6C103.1,0.5,102.7,0.1,101.5,0.1z"/>
+                        <path fill="#a0b0bc" d="M111.3,6c0-1.1,1.2-1.9,3.2-1.9c1.9,0,3.3,0.4,4.2,0.4c0.7,0,0.9-0.4,0.9-1.1V2.1c0-1-0.1-1.3-1.2-1.6 S115.7,0,114.2,0c-4,0-7.4,2.4-7.4,6.3c0,6.7,9.5,5.4,9.5,8.3c0,1.2-1.2,2-3.6,2c-1.3,0-3.3-0.3-4.5-0.7c-0.3-0.1-0.5-0.1-0.7-0.1 c-0.6,0-0.8,0.4-0.8,1.1v1.6c0,0.9,0.2,1.2,1.2,1.5c1.3,0.5,3.5,0.7,5.1,0.7c5,0,7.7-2.5,7.7-6.4C120.8,7.6,111.3,9,111.3,6z"/>
+                        <path fill="#a0b0bc" d="M81.2,0.1h-6.1c-1.1,0-1.3,0.3-1.3,1.4v1C73.8,3.6,74,4,75.1,4H76v12.7h-0.9c-1.1,0-1.3,0.3-1.3,1.4v1 c0,1.1,0.2,1.4,1.3,1.4h6.1c1.1,0,1.3-0.3,1.3-1.4v-1c0-1.1-0.2-1.4-1.3-1.4h-0.9V4h0.9c1.1,0,1.3-0.3,1.3-1.4v-1 C82.5,0.5,82.3,0.1,81.2,0.1z"/>
+                    </g>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const fileInfo = document.getElementById('fileInfo');
+        const processBtn = document.getElementById('processBtn');
+        const status = document.getElementById('status');
+        let selectedFile = null;
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', () => { if (fileInput.files.length) setFile(fileInput.files[0]); });
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / 1048576).toFixed(1) + ' MB';
+        }
+
+        function setFile(file) {
+            selectedFile = file;
+            fileName.textContent = file.name;
+            fileInfo.textContent = formatSize(file.size);
+            dropZone.classList.add('has-file');
+            processBtn.disabled = false;
+            status.textContent = '';
+            status.className = 'status';
+        }
+
+        processBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+            processBtn.disabled = true;
+            status.className = 'status processing-status';
+            status.innerHTML = '<span class="spinner"></span> Procesando...';
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            try {
+                const resp = await fetch('/process', { method: 'POST', body: formData });
+                if (!resp.ok) throw new Error('Error en el servidor');
+
+                const contentType = resp.headers.get('content-type');
+                if (contentType && contentType.includes('json')) {
+                    const json = await resp.json();
+                    throw new Error(json.error || 'Error desconocido');
+                }
+
+                const blob = await resp.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'carga_salesforce_output.xlsx';
+                a.click();
+                URL.revokeObjectURL(url);
+
+                status.className = 'status success';
+                status.innerHTML = '&#10003; Archivo generado y descargado correctamente';
+            } catch (err) {
+                status.className = 'status error';
+                status.textContent = 'Error: ' + err.message;
+            } finally {
+                processBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
