@@ -193,7 +193,7 @@ def process_excel(contents: bytes) -> bytes:
                         mrc1_val = float(mrc1_val)
                     except (ValueError, TypeError):
                         mrc1_val = 0
-                    if mrc1_val > 0:
+                    if mrc1_val != 0:
                         tipo = "O&M" if is_om else "MRC"
                         extornos.append(make_row(elem_id, ep_ext, current_year, current_month, start_ant, end_ant, tipo, -mrc1_val))
 
@@ -205,7 +205,7 @@ def process_excel(contents: bytes) -> bytes:
                         nrc1_val = float(nrc1_val)
                     except (ValueError, TypeError):
                         nrc1_val = 0
-                    if nrc1_val > 0:
+                    if nrc1_val != 0:
                         extornos.append(make_row(elem_id, ep_ext, current_year, current_month, start_ant, end_ant, "NRC", -nrc1_val))
 
     df_prov = pd.DataFrame(provisiones)
